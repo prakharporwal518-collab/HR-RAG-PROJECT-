@@ -35,6 +35,8 @@ const TOPICS = [
 
 const history = [];
 let busy = false;
+let me = null;      // signed-in user, or null
+let status = null;  // knowledge-base status for this user
 
 /* ---------- tiny safe markdown renderer ---------- */
 const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -93,9 +95,29 @@ function renderSources(bubble, sources) {
   bubble.appendChild(d);
 }
 
+function renderFeedback(bubble, { id, answered }) {
+  const el = document.createElement("div");
+  if (!answered) {
+    el.innerHTML = `<span class="not-found-tag">Shared with HR as a policy gap</span>`;
+    bubble.appendChild(el);
+    return;
+  }
+  el.className = "feedback";
+  el.innerHTML = `Was this helpful? <button type="button" data-v="1" aria-label="Helpful">👍</button><button type="button" data-v="0" aria-label="Not helpful">👎</button>`;
+  el.addEventListener("click", async (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    el.querySelectorAll("button").forEach((x) => { x.disabled = true; x.classList.toggle("chosen", x === b); });
+    await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, helpful: b.dataset.v === "1" }) });
+    el.insertAdjacentHTML("beforeend", `<span>${b.dataset.v === "1" ? "Thanks!" : "Thanks, HR will review this."}</span>`);
+  });
+  bubble.appendChild(el);
+}
+
 async function ask(question) {
   question = question.trim();
   if (!question || busy) return;
+  if (!me) { showGate(true); return; }
   busy = true;
   $("#sendBtn").disabled = true;
   addMessage("user", esc(question));
@@ -106,6 +128,7 @@ async function ask(question) {
   const answerEl = document.createElement("div");
   let answer = "";
   let sources = [];
+  let meta = null;
 
   try {
     const res = await fetch("/api/ask", {
@@ -113,6 +136,7 @@ async function ask(question) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, history: history.slice(-6) }),
     });
+    if (res.status === 401) { bubble.closest(".msg").remove(); me = null; renderAuth(); return; }
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
 
     const reader = res.body.getReader();
@@ -129,6 +153,7 @@ async function ask(question) {
         const event = block.match(/^event: (.*)$/m)?.[1];
         const data = JSON.parse(block.match(/^data: (.*)$/m)?.[1] ?? "null");
         if (event === "sources") sources = data;
+        if (event === "done") meta = data;
         if (event === "token") {
           if (!answer) { bubble.innerHTML = ""; bubble.appendChild(answerEl); }
           answer += data;
@@ -138,6 +163,7 @@ async function ask(question) {
       }
     }
     renderSources(bubble, sources);
+    if (meta) renderFeedback(bubble, meta);
     history.push({ role: "user", content: question }, { role: "assistant", content: answer });
   } catch (err) {
     bubble.innerHTML = `<p>⚠️ Sorry, something went wrong: ${esc(String(err.message || err))}</p>`;
@@ -192,22 +218,95 @@ $("#topicGrid").addEventListener("click", (e) => {
   if (t) askFromAnywhere(`Give me a short summary of the ${t.dataset.title} policy.`);
 });
 
-/* ---------- status ---------- */
-fetch("/api/status").then((r) => r.json()).then((s) => {
-  const docs = s.documents;
+/* ---------- auth + status ---------- */
+const api = (url, opts) => fetch(url, opts).then(async (r) => {
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return data;
+});
+
+function showGate(show) { $("#signinGate").hidden = !show; }
+
+function renderAuth(authInfo) {
+  const nav = $("#navUser");
+  if (!me) {
+    nav.innerHTML = `<a href="#ask" class="btn btn-primary btn-sm" id="navSignIn">Sign in</a>`;
+    showGate(true);
+    $("#kbStatus").textContent = "Sign in to see the policies available to you.";
+    return;
+  }
+  const initials = me.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  nav.innerHTML =
+    (me.is_admin ? `<button class="btn btn-ghost btn-sm" id="openInsights" type="button">Insights</button>
+                    <button class="btn btn-ghost btn-sm" id="openAdmin" type="button">Upload policy</button>` : "") +
+    `<span class="user-chip"><span class="initials">${esc(initials)}</span>${esc(me.name.split(" ")[0])}
+       <span class="role">${me.is_admin ? "HR admin" : me.groups.includes("managers") ? "Manager" : "Employee"}</span></span>
+     <button class="link-btn" id="signOut" type="button">Sign out</button>`;
+  showGate(false);
+  loadStatus();
+}
+
+async function initAuth() {
+  const info = await api("/api/me").catch(() => null);
+  if (!info) { $("#kbStatus").textContent = "Could not reach the server."; return; }
+  me = info.user;
+  if (info.auth.mode === "oidc") {
+    $("#ssoBtn").hidden = false;
+    $("#ssoName").textContent = info.auth.provider;
+  } else {
+    $("#devLogin").hidden = false;
+    $("#demoUsers").innerHTML = info.demo_users.map((u) =>
+      `<button type="button" data-email="${esc(u.email)}"><span class="avatar">${esc(u.name[0])}</span>
+         <span><b>${esc(u.name)}</b><small>${esc(u.title || u.email)}</small></span></button>`).join("");
+  }
+  renderAuth();
+}
+
+async function devSignIn(email) {
+  try {
+    me = (await api("/auth/dev-login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) })).user;
+    $("#loginMsg").textContent = "";
+    renderAuth();
+  } catch (err) { $("#loginMsg").textContent = err.message; }
+}
+$("#demoUsers").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) devSignIn(b.dataset.email); });
+$("#devForm").addEventListener("submit", (e) => { e.preventDefault(); devSignIn($("#devEmail").value); });
+
+$("#navUser").addEventListener("click", async (e) => {
+  const id = e.target.closest("button, a")?.id;
+  if (id === "signOut") {
+    await fetch("/auth/logout", { method: "POST" });
+    me = null; history.length = 0;
+    log.querySelectorAll(".msg:not(.welcome)").forEach((m) => m.remove());
+    renderAuth();
+  }
+  if (id === "openAdmin") openUpload();
+  if (id === "openInsights") openInsights();
+});
+
+async function loadStatus() {
+  try {
+    status = await api("/api/status");
+  } catch { $("#kbStatus").textContent = "Could not load the knowledge base."; return; }
+  const docs = status.documents;
   const pages = docs.reduce((n, d) => n + d.pages, 0);
   $("#kbStatus").innerHTML =
-    `<div><span class="dot"></span>${docs.length} document${docs.length !== 1 ? "s" : ""} · ${pages} pages indexed</div>` +
-    `<div style="margin-top:6px"><span class="dot ${s.llm ? "" : "warn"}"></span>${s.llm ? "AI answers enabled" : "Passage mode (no API key)"}</div>`;
-  if (pages) { $("#statPages").dataset.count = pages; }
-}).catch(() => { $("#kbStatus").textContent = "Could not reach the server."; });
+    `<div><span class="dot"></span>${docs.length} document${docs.length !== 1 ? "s" : ""} · ${pages} pages available to you</div>` +
+    `<div style="margin-top:6px"><span class="dot"></span>${status.retrieval === "hybrid" ? "Hybrid search (keywords + meaning)" : "Keyword search"}</div>` +
+    `<div style="margin-top:6px"><span class="dot ${status.llm ? "" : "warn"}"></span>${status.llm ? "AI answers enabled" : "Passage mode (no API key)"}</div>`;
+}
 
 /* ---------- admin upload ---------- */
 const modal = $("#adminModal");
 const fileInput = $("#pdfFile");
 const drop = $("#dropZone");
 const msg = $("#uploadMsg");
-$("#openAdmin").addEventListener("click", () => { msg.textContent = ""; modal.showModal(); });
+function openUpload() {
+  msg.textContent = "";
+  $("#groupChoices").innerHTML = (status?.groups || ["everyone"]).map((g) =>
+    `<label><input type="checkbox" name="groups" value="${esc(g)}" ${g === "everyone" ? "checked" : ""}/> ${esc(g)}</label>`).join("");
+  modal.showModal();
+}
 fileInput.addEventListener("change", () => { $("#dropText").innerHTML = fileInput.files[0] ? `📄 <b>${esc(fileInput.files[0].name)}</b>` : "<b>Choose a PDF</b> or drag it here"; });
 ["dragover", "dragenter"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
 ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
@@ -222,16 +321,12 @@ $("#uploadForm").addEventListener("submit", async (e) => {
   msg.textContent = "Uploading and indexing…";
   const fd = new FormData();
   fd.append("file", fileInput.files[0]);
+  fd.append("groups", [...document.querySelectorAll('#groupChoices input:checked')].map((i) => i.value).join(","));
   try {
-    const res = await fetch("/api/upload", { method: "POST", headers: { "X-Admin-Token": $("#adminToken").value }, body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Upload failed");
+    const data = await api("/api/upload", { method: "POST", body: fd });
     msg.className = "upload-msg ok";
-    msg.textContent = `✓ Indexed. Knowledge base now has ${data.documents.length} document(s).`;
-    fetch("/api/status").then((r) => r.json()).then((s) => {
-      const pages = s.documents.reduce((n, d) => n + d.pages, 0);
-      $("#kbStatus").firstElementChild.innerHTML = `<span class="dot"></span>${s.documents.length} documents · ${pages} pages indexed`;
-    });
+    msg.textContent = `✓ ${data.name} indexed. Visible to: ${data.groups.join(", ")}.`;
+    loadStatus();
   } catch (err) {
     msg.className = "upload-msg err";
     msg.textContent = err.message;
@@ -239,6 +334,30 @@ $("#uploadForm").addEventListener("submit", async (e) => {
     btn.disabled = false;
   }
 });
+
+/* ---------- HR insights ---------- */
+const fmtDate = (iso) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+async function openInsights() {
+  $("#insightsModal").showModal();
+  $("#gapRows").innerHTML = `<tr><td colspan="4" class="empty-row">Loading…</td></tr>`;
+  try {
+    const [d] = await Promise.all([api("/api/insights"), loadStatus()]);
+    const rate = d.answer_rate == null ? "–" : Math.round(d.answer_rate * 100) + "%";
+    $("#insightTiles").innerHTML = [[d.total, "questions asked"], [rate, "answered from policy"], [d.unanswered, "not in handbook"], [d.unhelpful, "marked not helpful"]]
+      .map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join("");
+    $("#gapRows").innerHTML = d.gaps.length ? d.gaps.map((g) => `<tr><td>${esc(g.question)}</td><td class="num">${g.count}</td>
+        <td><span class="pill ${g.reason === "not_in_handbook" ? "warn" : "bad"}">${g.reason === "not_in_handbook" ? "Not in handbook" : "Not helpful"}</span></td>
+        <td>${fmtDate(g.last_asked)}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="empty-row">No gaps yet. Every question so far was answered. 🎉</td></tr>`;
+    $("#docRows").innerHTML = status.documents.map((doc) => `<tr><td>${esc(doc.name)}</td><td>${doc.pages}</td>
+        <td>${doc.groups.map((g) => `<span class="pill">${esc(g)}</span>`).join("")}</td></tr>`).join("");
+  } catch (err) {
+    $("#gapRows").innerHTML = `<tr><td colspan="4" class="empty-row">${esc(err.message)}</td></tr>`;
+  }
+}
+
+initAuth();
 
 /* ---------- scroll craft: reveal, progress, parallax, counters, nav ---------- */
 const io = new IntersectionObserver((entries) => {
