@@ -1,8 +1,12 @@
 """Generation layer: turn retrieved handbook passages into a grounded answer.
 
-With ANTHROPIC_API_KEY set, Claude writes the answer and is instructed to use
-only the retrieved passages. Without a key, the app still works in
-"extractive" mode and simply shows the most relevant handbook passages.
+Two LLM providers are supported, chosen with LLM_PROVIDER (or automatically
+from whichever key is set):
+- "claude": ANTHROPIC_API_KEY, model CLAUDE_MODEL
+- "gemini": GEMINI_API_KEY (free tier available), model GEMINI_MODEL
+Both get the same prompt and are told to use only the retrieved passages.
+Without any key, the app still works in "passage" mode and simply shows the
+most relevant handbook passages.
 """
 from __future__ import annotations
 
@@ -13,6 +17,7 @@ from rag import Chunk
 
 MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5-5")
 EFFORT = os.getenv("CLAUDE_EFFORT", "low")  # chat Q&A is fast and accurate at low effort
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # The model starts its reply with this exact phrase when the handbook doesn't cover a
 # question. The server looks for it to log "unanswered" questions for HR Insights.
@@ -40,36 +45,52 @@ def is_unanswered(answer: str) -> bool:
     return answer.lstrip().replace("\u2019", "'").startswith(NOT_FOUND)  # tolerate curly apostrophes
 
 
+def provider() -> str | None:
+    """Which LLM writes answers: "claude", "gemini", or None (passage mode)."""
+    choice = os.getenv("LLM_PROVIDER", "").strip().lower()
+    keys = {"claude": os.getenv("ANTHROPIC_API_KEY"), "gemini": os.getenv("GEMINI_API_KEY")}
+    if choice:
+        return choice if keys.get(choice) else None
+    return next((name for name, key in keys.items() if key), None)
+
+
 def llm_enabled() -> bool:
-    return bool(os.getenv("ANTHROPIC_API_KEY"))
+    return provider() is not None
+
+
+def build_turns(question: str, chunks: list[Chunk], history: list[dict]) -> list[dict]:
+    """Recent chat history plus the new question with its handbook passages."""
+    turns = [
+        {"role": m["role"], "content": m["content"]}
+        for m in history[-6:]
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    turns.append({"role": "user", "content": f"{format_passages(chunks)}\n\nEmployee question: {question}"})
+    return turns
 
 
 def stream_answer(question: str, chunks: list[Chunk], history: list[dict]) -> Iterator[str]:
     if not chunks:
         yield f"{NOT_FOUND} Please reach out to the **Human Resources** team or your manager for help."
         return
-    if not llm_enabled():
+    name = provider()
+    if name is None:
         yield from extractive_answer(chunks)
         return
+    turns = build_turns(question, chunks, history)
+    yield from (stream_gemini if name == "gemini" else stream_claude)(turns, chunks)
 
+
+def stream_claude(turns: list[dict], chunks: list[Chunk]) -> Iterator[str]:
     import anthropic
 
     client = anthropic.Anthropic()
-    messages = [
-        {"role": m["role"], "content": m["content"]}
-        for m in history[-6:]
-        if m.get("role") in ("user", "assistant") and m.get("content")
-    ]
-    messages.append({
-        "role": "user",
-        "content": f"{format_passages(chunks)}\n\nEmployee question: {question}",
-    })
     try:
         with client.beta.messages.stream(
             model=MODEL,
             max_tokens=4000,
             system=SYSTEM_PROMPT,
-            messages=messages,
+            messages=turns,
             output_config={"effort": EFFORT},
             # If a safety classifier ever declines, retry on a fallback model server-side.
             betas=["server-side-fallback-2026-07-01"],
@@ -86,6 +107,46 @@ def stream_answer(question: str, chunks: list[Chunk], history: list[dict]) -> It
     except (anthropic.APIStatusError, anthropic.APIConnectionError) as e:
         yield f"⚠️ Could not reach the AI service ({type(e).__name__}). Showing matching handbook passages instead.\n\n"
         yield from extractive_answer(chunks)
+
+
+def stream_gemini(turns: list[dict], chunks: list[Chunk]) -> Iterator[str]:
+    from google import genai
+    from google.genai import errors, types
+
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    contents = [
+        # Gemini calls the assistant role "model".
+        types.Content(role="model" if t["role"] == "assistant" else "user", parts=[types.Part(text=t["content"])])
+        for t in turns
+    ]
+    started = False
+    try:
+        for part in client.models.generate_content_stream(
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, max_output_tokens=4000),
+        ):
+            if part.text:
+                started = True
+                yield part.text
+        if not started:  # e.g. blocked by a safety filter
+            yield "Sorry, I can't help with that request. Please contact HR directly."
+    except errors.APIError as e:
+        if started:
+            yield "\n\n⚠️ The answer was cut off. Please try again."
+        elif e.code == 429:
+            yield "⚠️ The assistant is busy right now (free-tier limit reached). Please try again in a minute."
+        else:
+            hint = {400: "check GEMINI_API_KEY", 403: "check GEMINI_API_KEY", 404: "check GEMINI_MODEL"}.get(e.code, "")
+            yield (f"⚠️ The Gemini API returned an error ({e.code}{', ' + hint if hint else ''}). "
+                   "Showing matching handbook passages instead.\n\n")
+            yield from extractive_answer(chunks)
+    except Exception as e:  # network problems surface as httpx errors, not APIError
+        if started:
+            yield "\n\n⚠️ The answer was cut off. Please try again."
+        else:
+            yield f"⚠️ Could not reach the AI service ({type(e).__name__}). Showing matching handbook passages instead.\n\n"
+            yield from extractive_answer(chunks)
 
 
 def extractive_answer(chunks: list[Chunk]) -> Iterator[str]:

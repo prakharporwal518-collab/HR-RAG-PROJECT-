@@ -25,7 +25,7 @@ from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
 import auth  # noqa: E402
 from auth import OIDC, AccessConfig, User, can_read, current_user, require_admin, require_user  # noqa: E402
-from llm import is_unanswered, llm_enabled, stream_answer  # noqa: E402
+from llm import is_unanswered, llm_enabled, provider, stream_answer  # noqa: E402
 from rag import KnowledgeBase  # noqa: E402
 from store import Store  # noqa: E402
 
@@ -131,6 +131,7 @@ def status(user: User = Depends(require_user)):
     return {
         "documents": docs,
         "llm": llm_enabled(),
+        "llm_provider": provider(),
         "retrieval": "hybrid" if kb.dense_enabled else "bm25",
         "groups": access.all_groups() if user.is_admin else None,
     }

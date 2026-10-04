@@ -293,7 +293,7 @@ async function loadStatus() {
   $("#kbStatus").innerHTML =
     `<div><span class="dot"></span>${docs.length} document${docs.length !== 1 ? "s" : ""} · ${pages} pages available to you</div>` +
     `<div style="margin-top:6px"><span class="dot"></span>${status.retrieval === "hybrid" ? "Hybrid search (keywords + meaning)" : "Keyword search"}</div>` +
-    `<div style="margin-top:6px"><span class="dot ${status.llm ? "" : "warn"}"></span>${status.llm ? "AI answers enabled" : "Passage mode (no API key)"}</div>`;
+    `<div style="margin-top:6px"><span class="dot ${status.llm ? "" : "warn"}"></span>${status.llm ? `AI answers by ${status.llm_provider === "gemini" ? "Gemini" : "Claude"}` : "Passage mode (no API key)"}</div>`;
 }
 
 /* ---------- admin upload ---------- */

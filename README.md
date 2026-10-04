@@ -2,7 +2,7 @@
 
 Nobody reads the HR handbook. **HR Assist** lets Qorvexa Technology employees ask questions in plain English and get answers taken **only from the HR policy PDFs they are allowed to see**, with the page number cited for every fact. HR gets a dashboard showing which questions the policies don't answer.
 
-![stack](https://img.shields.io/badge/FastAPI-Python-4f46e5) ![llm](https://img.shields.io/badge/LLM-Claude-06b6d4) ![vectors](https://img.shields.io/badge/vectors-ChromaDB-7c3aed)
+![stack](https://img.shields.io/badge/FastAPI-Python-4f46e5) ![llm](https://img.shields.io/badge/LLM-Claude%20%7C%20Gemini-06b6d4) ![vectors](https://img.shields.io/badge/vectors-ChromaDB-7c3aed)
 
 ## How it works
 
@@ -21,7 +21,7 @@ Nobody reads the HR handbook. **HR Assist** lets Qorvexa Technology employees as
    vector ranking┴─► Reciprocal Rank Fusion ──► top passages
         │
         ▼
- Claude answers using ONLY those passages ──► answer + [p. N] citations
+ Claude or Gemini answers using ONLY those passages ──► answer + [p. N] citations
         │
         ▼
  question logged (anonymously) ──► "not in handbook" / 👎 ──► HR Insights
@@ -51,7 +51,7 @@ backend/
   app.py      FastAPI routes: sign-in, /api/ask (streaming), uploads, insights
   auth.py     OIDC single sign-on, groups, document permission checks
   rag.py      PDF chunking, BM25, ChromaDB vectors, hybrid fusion
-  llm.py      Grounded prompt + Claude streaming call (passage-mode fallback)
+  llm.py      Grounded prompt + Claude or Gemini streaming (passage-mode fallback)
   store.py    SQLite: document permissions + question log
 config/
   access.json Email domains, group membership, default document access, demo users
@@ -68,12 +68,21 @@ storage/      Created at runtime: chroma/ vectors + hr_assist.db (git-ignored)
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env               # add ANTHROPIC_API_KEY and a SESSION_SECRET
+cp .env.example .env               # add ANTHROPIC_API_KEY or GEMINI_API_KEY, and a SESSION_SECRET
 cd backend
 uvicorn app:app --reload
 ```
 
 Open http://localhost:8000. The first start downloads the ~80 MB embedding model.
+
+### Choosing the LLM
+
+| Provider | Variables | Notes |
+|---|---|---|
+| Claude | `ANTHROPIC_API_KEY`, optional `CLAUDE_MODEL` | Default when its key is set |
+| Gemini | `GEMINI_API_KEY`, optional `GEMINI_MODEL` (default `gemini-2.5-flash`) | Free tier available. Rate-limited, and Google may use free-tier prompts to improve its products. |
+
+If both keys are set, `LLM_PROVIDER=gemini` or `LLM_PROVIDER=claude` picks one. If Gemini returns a 404, the model name has changed: set `GEMINI_MODEL` to a current Flash model listed in Google AI Studio.
 
 Without SSO settings, the app runs in **demo mode**: the sign-in card lets you pick an employee, a manager or an HR admin (Neha Kapoor), so you can try every role. Set `OIDC_*` in `.env` to switch to real single sign-on. Demo mode is then disabled automatically.
 
