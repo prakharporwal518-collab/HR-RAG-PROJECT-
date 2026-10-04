@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HR Assist · Qorvexa Technology</title>
+  <meta name="description" content="Ask any question about Qorvexa HR policies and get an answer with page citations from the official Employee HR Handbook." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><text x='16' y='22' font-size='17' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'>Q</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="scroll-progress" id="scrollProgress"></div>
+
+  <header class="nav" id="nav">
+    <div class="container nav-inner">
+      <a href="#top" class="brand">
+        <span class="brand-mark">Q</span>
+        <span class="brand-text">Qorvexa <span>Technology</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <a href="#ask">Ask HR</a>
+        <a href="#topics">Policy topics</a>
+        <a href="#how">How it works</a>
+        <button class="btn btn-ghost btn-sm" id="openAdmin" type="button">Upload policy</button>
+      </nav>
+      <button class="nav-toggle" id="navToggle" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="blob blob-a" data-parallax="0.15"></div>
+      <div class="blob blob-b" data-parallax="-0.1"></div>
+      <div class="container hero-grid">
+        <div class="hero-copy reveal">
+          <span class="eyebrow"><span class="pulse"></span>HR Assist · Internal employee portal</span>
+          <h1>HR policies, <span class="grad">answered in seconds.</span></h1>
+          <p class="lead">Nobody enjoys reading a 23-page handbook. Ask a question in plain English and get a clear answer, quoted from the official Qorvexa Employee HR Handbook with the page number so you can check it.</p>
+          <div class="hero-cta">
+            <a href="#ask" class="btn btn-primary">Ask a question <span aria-hidden="true">→</span></a>
+            <a href="#topics" class="btn btn-ghost">Browse 20 policy areas</a>
+          </div>
+          <ul class="hero-stats">
+            <li><strong data-count="20">0</strong><span>policy areas</span></li>
+            <li><strong id="statPages" data-count="23">0</strong><span>handbook pages</span></li>
+            <li><strong>24/7</strong><span>instant answers</span></li>
+          </ul>
+        </div>
+
+        <div class="hero-card reveal delay-2" aria-hidden="true">
+          <div class="mock-head"><span></span><span></span><span></span><em>HR Assist</em></div>
+          <div class="mock-body">
+            <div class="mock-msg user">Can I accept a gift from a vendor?</div>
+            <div class="mock-msg bot">
+              Never cash or cash equivalents. Reasonable business hospitality is okay only if it's lawful, modest, infrequent and not meant to influence a decision. <span class="cite">p. 16</span>
+            </div>
+            <div class="mock-msg user">How do I raise a POSH complaint?</div>
+            <div class="mock-typing"><i></i><i></i><i></i></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUST BAND -->
+    <section class="band">
+      <div class="container band-inner reveal">
+        <div><b>Source-grounded</b><span>Answers come only from uploaded HR documents</span></div>
+        <div><b>Page citations</b><span>Every answer links back to the handbook page</span></div>
+        <div><b>Private</b><span>Internal &amp; confidential to Qorvexa employees</span></div>
+        <div><b>Version 1.0</b><span>Handbook effective 04 October 2026</span></div>
+      </div>
+    </section>
+
+    <!-- ASK -->
+    <section class="section" id="ask">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="kicker">Ask HR</span>
+          <h2>What would you like to know?</h2>
+          <p>Leave, payroll, remote work, POSH, resignation: ask it the way you'd ask a colleague.</p>
+        </div>
+
+        <div class="chat-shell reveal">
+          <aside class="chat-side">
+            <h3>Popular questions</h3>
+            <div class="suggestions" id="suggestions"></div>
+            <div class="side-status" id="kbStatus">Loading knowledge base…</div>
+          </aside>
+
+          <div class="chat-main">
+            <div class="chat-log" id="chatLog" aria-live="polite">
+              <div class="msg bot welcome">
+                <div class="avatar">Q</div>
+                <div class="bubble">
+                  <p>Hi! I'm <b>Qorvexa HR Assist</b>. I answer questions using the official <b>Employee HR Handbook</b> and show the page each answer comes from.</p>
+                  <p class="muted">For anything personal (your salary, your leave balance) please contact HR directly.</p>
+                </div>
+              </div>
+            </div>
+            <form class="chat-input" id="chatForm" autocomplete="off">
+              <textarea id="question" rows="1" placeholder="e.g. How many days' notice do I give before taking leave?" maxlength="1000" required></textarea>
+              <button class="send" type="submit" id="sendBtn" aria-label="Send">
+                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.3 10l12.6 2-12.6 2z"/></svg>
+              </button>
+            </form>
+            <p class="disclaimer">HR Assist can make mistakes. The handbook and your employment terms are the final reference.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOPICS -->
+    <section class="section alt" id="topics">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="kicker">Policy library</span>
+          <h2>Everything in the handbook, one click away</h2>
+          <p>Pick a topic and HR Assist will summarise what the policy says.</p>
+        </div>
+        <div class="topics" id="topicGrid"></div>
+      </div>
+    </section>
+
+    <!-- HOW -->
+    <section class="section" id="how">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="kicker">How it works</span>
+          <h2>Retrieval-Augmented Generation, explained simply</h2>
+        </div>
+        <div class="steps">
+          <div class="step reveal"><span class="step-no">01</span><h3>Upload</h3><p>HR uploads the policy PDF. It's split into small, page-tagged passages and indexed for search.</p></div>
+          <div class="step reveal delay-1"><span class="step-no">02</span><h3>Retrieve</h3><p>Your question is matched against every passage with BM25 ranking to find the most relevant policy text.</p></div>
+          <div class="step reveal delay-2"><span class="step-no">03</span><h3>Answer</h3><p>Claude writes an answer using <em>only</em> those passages and cites the page. If the handbook doesn't cover it, it says so.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="container reveal">
+        <h2>People. Technology. Progress.</h2>
+        <p>Can't find what you need? Contact the Human Resources team or your manager.</p>
+        <a href="#ask" class="btn btn-light">Ask HR Assist</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="brand"><span class="brand-mark">Q</span><span class="brand-text">Qorvexa <span>Technology</span></span></div>
+      <p>© 2026 Qorvexa Technology · Human Resources · Internal use only</p>
+    </div>
+  </footer>
+
+  <!-- ADMIN MODAL -->
+  <dialog class="modal" id="adminModal">
+    <form method="dialog" class="modal-card" id="uploadForm">
+      <button class="modal-close" value="cancel" formnovalidate aria-label="Close">×</button>
+      <h3>Upload an HR policy PDF</h3>
+      <p class="muted">HR admins only. The document is added to the knowledge base immediately.</p>
+      <label>Admin token<input type="password" id="adminToken" required /></label>
+      <label class="drop" id="dropZone">
+        <input type="file" id="pdfFile" accept="application/pdf" required />
+        <span id="dropText"><b>Choose a PDF</b> or drag it here</span>
+      </label>
+      <div class="upload-msg" id="uploadMsg"></div>
+      <button class="btn btn-primary full" type="submit" id="uploadBtn">Upload &amp; index</button>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
