@@ -14,10 +14,14 @@ from rag import Chunk
 MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5-5")
 EFFORT = os.getenv("CLAUDE_EFFORT", "low")  # chat Q&A is fast and accurate at low effort
 
-SYSTEM_PROMPT = """You are Qorvexa HR Assist, the internal HR policy assistant for Qorvexa Technology employees.
+# The model starts its reply with this exact phrase when the handbook doesn't cover a
+# question. The server looks for it to log "unanswered" questions for HR Insights.
+NOT_FOUND = "I couldn't find this in the HR handbook."
+
+SYSTEM_PROMPT = f"""You are Qorvexa HR Assist, the internal HR policy assistant for Qorvexa Technology employees.
 
 Answer questions using ONLY the handbook passages provided in <passages>. Rules:
-- If the passages do not contain the answer, say you could not find it in the HR handbook and suggest contacting the Human Resources team or the employee's manager. Never guess or use outside knowledge about other companies or laws.
+- If the passages do not answer the question, begin your reply with exactly "{NOT_FOUND}" and suggest contacting the Human Resources team or the employee's manager. Never guess or use outside knowledge about other companies or laws.
 - Cite the page for every fact, in the form [p. 9]. Use the page numbers given on each passage.
 - Be concise and friendly: a direct answer first, then short bullet points if helpful. Use plain Markdown (bold, bullets). No headings.
 - Where the handbook says something depends on the employee's location, role or employment terms, say so instead of inventing specific numbers.
@@ -32,14 +36,17 @@ def format_passages(chunks: list[Chunk]) -> str:
     return "<passages>\n" + "\n".join(parts) + "\n</passages>"
 
 
+def is_unanswered(answer: str) -> bool:
+    return answer.lstrip().replace("\u2019", "'").startswith(NOT_FOUND)  # tolerate curly apostrophes
+
+
 def llm_enabled() -> bool:
     return bool(os.getenv("ANTHROPIC_API_KEY"))
 
 
 def stream_answer(question: str, chunks: list[Chunk], history: list[dict]) -> Iterator[str]:
     if not chunks:
-        yield ("I couldn't find anything about that in the Qorvexa HR handbook. "
-               "Please reach out to the **Human Resources** team or your manager for help.")
+        yield f"{NOT_FOUND} Please reach out to the **Human Resources** team or your manager for help."
         return
     if not llm_enabled():
         yield from extractive_answer(chunks)

@@ -1,0 +1,20 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Unit tests (auth, access control, logging, retrieval quality)
+        run: pytest -q tests
+      - name: Retrieval evaluation report
+        run: python eval/run_eval.py --show-misses --min-hit3 0.80

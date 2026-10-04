@@ -1,0 +1,17 @@
+{
+  "_comment": "Who can sign in, who belongs to which group, and who can read each policy document. 'everyone' = any signed-in employee; 'hr-admin' can read everything, upload documents and see HR Insights.",
+  "allowed_domains": ["qorvexa.com"],
+  "groups": {
+    "hr-admin": ["hr.admin@qorvexa.com", "*@hr.qorvexa.com"],
+    "managers": ["priya.manager@qorvexa.com"]
+  },
+  "documents": {
+    "Qorvexa_HR_Handbook.pdf": ["everyone"]
+  },
+  "default_document_groups": ["hr-admin"],
+  "demo_users": [
+    {"email": "arjun.employee@qorvexa.com", "name": "Arjun Mehta", "title": "Software Engineer"},
+    {"email": "priya.manager@qorvexa.com", "name": "Priya Sharma", "title": "Engineering Manager"},
+    {"email": "hr.admin@qorvexa.com", "name": "Neha Kapoor", "title": "HR Business Partner"}
+  ]
+}

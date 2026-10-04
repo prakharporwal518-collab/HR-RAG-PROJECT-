@@ -24,7 +24,7 @@
         <a href="#ask">Ask HR</a>
         <a href="#topics">Policy topics</a>
         <a href="#how">How it works</a>
-        <button class="btn btn-ghost btn-sm" id="openAdmin" type="button">Upload policy</button>
+        <div class="nav-user" id="navUser"></div>
       </nav>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu"><span></span><span></span></button>
     </div>
@@ -101,6 +101,23 @@
                 </div>
               </div>
             </div>
+            <div class="signin-gate" id="signinGate" hidden>
+              <div class="gate-card">
+                <span class="brand-mark">Q</span>
+                <h3>Sign in to ask HR Assist</h3>
+                <p class="muted">Use your Qorvexa account. You'll only see the policies your team has access to.</p>
+                <a class="btn btn-primary full" id="ssoBtn" href="/auth/login" hidden>Continue with <span id="ssoName">SSO</span></a>
+                <div id="devLogin" hidden>
+                  <p class="dev-note">Demo mode: pick an account (SSO isn't configured)</p>
+                  <div class="demo-users" id="demoUsers"></div>
+                  <form class="dev-email" id="devForm">
+                    <input type="email" id="devEmail" placeholder="or any name@qorvexa.com" required />
+                    <button class="btn btn-ghost btn-sm" type="submit">Sign in</button>
+                  </form>
+                  <p class="upload-msg err" id="loginMsg"></p>
+                </div>
+              </div>
+            </div>
             <form class="chat-input" id="chatForm" autocomplete="off">
               <textarea id="question" rows="1" placeholder="e.g. How many days' notice do I give before taking leave?" maxlength="1000" required></textarea>
               <button class="send" type="submit" id="sendBtn" aria-label="Send">
@@ -161,15 +178,29 @@
     <form method="dialog" class="modal-card" id="uploadForm">
       <button class="modal-close" value="cancel" formnovalidate aria-label="Close">×</button>
       <h3>Upload an HR policy PDF</h3>
-      <p class="muted">HR admins only. The document is added to the knowledge base immediately.</p>
-      <label>Admin token<input type="password" id="adminToken" required /></label>
+      <p class="muted">The document is indexed immediately and only shown to the groups you choose.</p>
       <label class="drop" id="dropZone">
         <input type="file" id="pdfFile" accept="application/pdf" required />
         <span id="dropText"><b>Choose a PDF</b> or drag it here</span>
       </label>
+      <fieldset class="group-picker"><legend>Who can read it?</legend><div id="groupChoices"></div></fieldset>
       <div class="upload-msg" id="uploadMsg"></div>
       <button class="btn btn-primary full" type="submit" id="uploadBtn">Upload &amp; index</button>
     </form>
+  </dialog>
+
+  <!-- HR INSIGHTS -->
+  <dialog class="modal modal-wide" id="insightsModal">
+    <div class="modal-card">
+      <form method="dialog"><button class="modal-close" aria-label="Close">×</button></form>
+      <h3>HR Insights</h3>
+      <p class="muted">Questions the handbook couldn't answer, or that employees marked as not helpful. These are the policies worth clarifying. Questions are logged without employee names.</p>
+      <div class="tiles" id="insightTiles"></div>
+      <h4>Policy gaps</h4>
+      <div class="table-wrap"><table class="gaps"><thead><tr><th>Question</th><th>Times</th><th>Why</th><th>Last asked</th></tr></thead><tbody id="gapRows"></tbody></table></div>
+      <h4>Document access</h4>
+      <div class="table-wrap"><table class="gaps"><thead><tr><th>Document</th><th>Pages</th><th>Visible to</th></tr></thead><tbody id="docRows"></tbody></table></div>
+    </div>
   </dialog>
 
   <script src="app.js"></script>
