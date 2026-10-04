@@ -18,4 +18,6 @@ os.environ.update({
     "STORAGE_DIR": str(_tmp / "storage"),
     "AUTH_MODE": "dev",
     "ANTHROPIC_API_KEY": "",  # passage mode: no network calls in tests
+    "GEMINI_API_KEY": "",
+    "LLM_PROVIDER": "",
 })
