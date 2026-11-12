@@ -4,6 +4,10 @@ Nobody reads the HR handbook. **HR Assist** lets Qorvexa Technology employees as
 
 ![stack](https://img.shields.io/badge/FastAPI-Python-4f46e5) ![llm](https://img.shields.io/badge/LLM-Claude%20%7C%20Gemini-06b6d4) ![vectors](https://img.shields.io/badge/vectors-ChromaDB-7c3aed)
 
+### 🚀 [Live demo: hr-rag-project.onrender.com](https://hr-rag-project.onrender.com)
+
+Sign in with one of the demo accounts (employee, manager or HR admin) to try it. It runs on Render's free plan, so the first visit after a quiet period takes about a minute to wake up. The demo uses a sample handbook for a fictional company, so please don't upload real documents.
+
 ## How it works
 
 ```
